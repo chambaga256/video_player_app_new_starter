@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:video_player_app/video_info.dart';
 
-
 void main() {
   runApp(MyApp());
 }
@@ -13,7 +12,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return GetMaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Flutter Demo',
+      title: 'play video',
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),

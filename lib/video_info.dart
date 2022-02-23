@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:ffi';
 import 'dart:math';
 
 import 'package:flutter/cupertino.dart';
@@ -7,7 +8,10 @@ import 'package:get/get.dart';
 import 'package:video_player/video_player.dart';
 import 'package:video_player_app/colors.dart';
 import 'package:video_player_app/colors.dart';
+import 'package:video_player_app/colors.dart';
 import "colors.dart" as color;
+import 'colors.dart';
+import 'colors.dart';
 
 class VideoInfo extends StatefulWidget {
   const VideoInfo({Key? key}) : super(key: key);
@@ -19,11 +23,13 @@ class VideoInfo extends StatefulWidget {
 class _VideoInfoState extends State<VideoInfo> {
   List videoInfo = [];
   bool _playArea = false;
-  late VideoPlayerController _controller;
+  bool _isPlaying = false;
+  bool _disposed = false;
+  VideoPlayerController? _controller;
 
   _initData() async {
     await DefaultAssetBundle.of(context)
-        .loadString("json/videoinfo.json") 
+        .loadString("json/videoinfo.json")
         .then((value) {
       setState(() {
         videoInfo = json.decode(value);
@@ -36,6 +42,15 @@ class _VideoInfoState extends State<VideoInfo> {
     super.initState();
     _initData();
     //_onTapVideo(-1);
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    _controller?.pause();
+    _controller?.dispose();
+    _controller = null;
+    super.dispose();
   }
 
   @override
@@ -212,10 +227,14 @@ class _VideoInfoState extends State<VideoInfo> {
                                         color.AppColor.secondPageTopIconColor)
                               ],
                             )),
+                        // Container(child: _playView(context),
+                        // _controlView(context),),
+                        _playView(context),
+                        _controlView(context)
                       ],
                     ),
                   ),
-            _playView(context),
+            //  _playView(context),
             Expanded(
                 child: Container(
               decoration: BoxDecoration(
@@ -274,26 +293,106 @@ class _VideoInfoState extends State<VideoInfo> {
     );
   }
 
+  Widget _controlView(BuildContext context) {
+    return Container(
+      height: 120,
+      width: MediaQuery.of(context).size.width,
+      color: Colors.grey,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          FlatButton(
+            onPressed: () async {},
+            child: Icon(
+              Icons.fast_rewind,
+              size: 36,
+              color: Colors.white,
+            ),
+          ),
+          FlatButton(
+            onPressed: () async {
+              if (_isPlaying) {
+                setState(() {
+                  _isPlaying = false;
+                });
+                _controller?.pause();
+              } else {
+                setState(() {
+                  _isPlaying = true;
+                });
+                _controller?.play();
+              }
+            },
+            child: Icon(
+              _isPlaying ? Icons.pause : Icons.play_arrow,
+              size: 36,
+              color: Colors.white,
+            ),
+          ),
+          FlatButton(
+            onPressed: () async {},
+            child: Icon(
+              Icons.fast_forward,
+              size: 36,
+              color: Colors.white,
+            ),
+          )
+        ],
+      ),
+    );
+  }
+
   Widget _playView(BuildContext context) {
-    final controller = _controller;
-    if (controller != null && controller.value.isInitialized) {
-      return Container(
-        height: 300,
-        width: 300,
-        child: VideoPlayer(controller),
+    //final controller = _controller;
+    if (_controller! != null && _controller!.value.isInitialized) {
+      return AspectRatio(
+        aspectRatio: 16 / 9,
+        child: VideoPlayer(_controller!),
       );
     } else {
-      return Text("Being initialised");
+      return AspectRatio(
+          aspectRatio: 16 / 9,
+          child: Center(
+              child: Text("preparing ....",
+                  style: TextStyle(
+                    fontSize: 20,
+                    color: Colors.white,
+                  ))));
     }
   }
 
-  _onTopVidoe(int index) {
+  void _onControllerUpdate() async {
+    final controller = _controller;
+    if (_disposed) {
+      return;
+    }
+    if (controller == null) {
+      debugPrint("controller is null");
+      return;
+    }
+
+    if (!controller.value.isInitialized) {
+      debugPrint("conroller cant be initilised");
+    }
+    final playing = controller.value.isPlaying;
+    _isPlaying = playing;
+  }
+
+  _onTopVidoe(int index) async {
     final controller =
         VideoPlayerController.network(videoInfo[index]['videoUrl']);
+    final old = _controller;
     _controller = controller;
+    if (old != null) {
+      old.removeListener(_onControllerUpdate);
+      old.pause();
+    }
     setState(() {});
     controller
       ..initialize().then((_) {
+        old?.dispose();
+        controller.addListener(_onControllerUpdate);
+
         controller.play();
         setState(() {});
       });
